@@ -50,7 +50,10 @@ from pika.spec import Basic, BasicProperties
 from app.config import settings
 from app.database import mark_as_shown, upsert_competition
 from app.llm import classify_competition, translate_description
+from app.logging_config import get_logger
 from app.telegram import send_competition_notification, send_error_notification
+
+logger = get_logger("worker")
 
 
 # ============================================================
@@ -98,15 +101,17 @@ def wait_for_rabbitmq(max_retries: int = 30, delay: int = 2) -> None:
     Ждёт пока RabbitMQ станет доступен.
     Полезно при запуске в Docker - RabbitMQ может стартовать дольше.
     """
+    logger.info(f"Waiting for RabbitMQ at {settings.rabbitmq_host}:{settings.rabbitmq_port}")
     for attempt in range(max_retries):
         try:
             connection = get_connection()
             connection.close()
-            print("RabbitMQ is ready!")
+            logger.info("RabbitMQ is ready!")
             return
         except pika.exceptions.AMQPConnectionError:
-            print(f"Waiting for RabbitMQ... attempt {attempt + 1}/{max_retries}")
+            logger.warning(f"Waiting for RabbitMQ... attempt {attempt + 1}/{max_retries}")
             time.sleep(delay)
+    logger.error("Could not connect to RabbitMQ after all retries")
     raise RuntimeError("Could not connect to RabbitMQ")
 
 
@@ -144,7 +149,7 @@ def publish_task(queue_name: str, data: dict[str, Any]) -> None:
         properties=pika.BasicProperties(delivery_mode=2),
     )
 
-    print(f"Published task to {queue_name}: {data.get('title', 'unknown')}")
+    logger.info(f"Published task to {queue_name}: {data.get('title', data.get('competition_title', 'unknown'))}")
     connection.close()
 
 
@@ -172,10 +177,12 @@ def process_classify_task(data: dict[str, Any]) -> None:
     3. Сохраняет в БД
     4. Создаёт задачу на уведомление
     """
-    print(f"Processing classification for: {data.get('competition_title')}")
+    title = data.get("competition_title", "unknown")
+    logger.info(f"Processing classification for: {title}")
 
     try:
         # Классифицируем через LLM
+        logger.debug(f"Calling LLM for classification: {title}")
         result = classify_competition(
             title=data.get("competition_title", ""),
             link=data.get("link", ""),
@@ -184,6 +191,7 @@ def process_classify_task(data: dict[str, Any]) -> None:
             description=data.get("description", ""),
             tags=data.get("tags", ""),
         )
+        logger.debug(f"LLM classification result: type={result.type}")
 
         # Фильтруем - пропускаем только интересные типы
         if result.type in ["CLASSIC ML", "LLM/NLP", "CV"]:
@@ -200,6 +208,7 @@ def process_classify_task(data: dict[str, Any]) -> None:
                 pass
 
             # Сохраняем в БД
+            logger.debug(f"Saving competition to DB: {result.title}")
             upsert_competition(
                 title=result.title,
                 link=result.link,
@@ -209,12 +218,12 @@ def process_classify_task(data: dict[str, Any]) -> None:
                 competition_type=result.type,
             )
 
-            print(f"Saved competition: {result.title} (type: {result.type})")
+            logger.info(f"Saved competition: {result.title} (type: {result.type})")
         else:
-            print(f"Skipped competition (type={result.type}): {result.title}")
+            logger.info(f"Skipped competition (type={result.type}): {result.title}")
 
     except Exception as e:
-        print(f"Error processing classification: {e}")
+        logger.error(f"Error processing classification for {title}: {e}")
         send_error_notification(f"Classification error: {e}")
 
 
@@ -226,13 +235,18 @@ def process_notify_task(data: dict[str, Any]) -> None:
     2. Отправляет в Telegram
     3. Помечает соревнование как показанное
     """
-    print(f"Processing notification for: {data.get('title')}")
+    title = data.get("title", "unknown")
+    logger.info(f"Processing notification for: {title}")
+    logger.debug(f"Notification data: {data}")
 
     try:
         # Переводим описание на русский
+        logger.debug(f"Translating description for: {title}")
         description_ru = translate_description(data.get("description", ""))
+        logger.debug(f"Translation completed for: {title}")
 
         # Отправляем в Telegram
+        logger.info(f"Sending Telegram notification for: {title}")
         send_competition_notification(
             title=data["title"],
             link=data["link"],
@@ -240,14 +254,16 @@ def process_notify_task(data: dict[str, Any]) -> None:
             competition_type=data.get("type", ""),
             description_ru=description_ru,
         )
+        logger.info(f"Telegram notification sent for: {title}")
 
         # Помечаем как показанное
+        logger.debug(f"Marking as shown: {title}")
         mark_as_shown(data["title"])
 
-        print(f"Notified about: {data['title']}")
+        logger.info(f"Notification completed for: {title}")
 
     except Exception as e:
-        print(f"Error processing notification: {e}")
+        logger.error(f"Error processing notification for {title}: {type(e).__name__}: {e}")
         send_error_notification(f"Notification error: {e}")
 
 
@@ -287,7 +303,7 @@ def make_callback(process_func):
             channel.basic_ack(delivery_tag=method.delivery_tag)
 
         except Exception as e:
-            print(f"Error in callback: {e}")
+            logger.error(f"Error in callback: {type(e).__name__}: {e}")
             # basic_nack - сообщаем что не смогли обработать
             # requeue=True - вернуть сообщение в очередь для повторной попытки
             channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
@@ -301,7 +317,7 @@ def run_worker(queue_name: str, process_func) -> None:
 
     Worker работает бесконечно, обрабатывая задачи по мере поступления.
     """
-    print(f"Starting worker for queue: {queue_name}")
+    logger.info(f"Starting worker for queue: {queue_name}")
 
     # Ждём пока RabbitMQ станет доступен
     wait_for_rabbitmq()
@@ -323,7 +339,7 @@ def run_worker(queue_name: str, process_func) -> None:
         on_message_callback=make_callback(process_func),
     )
 
-    print(f"Worker ready. Waiting for tasks in {queue_name}...")
+    logger.info(f"Worker ready. Waiting for tasks in {queue_name}...")
 
     # Запускаем бесконечный цикл обработки
     # Это блокирующий вызов - программа будет работать пока не остановят

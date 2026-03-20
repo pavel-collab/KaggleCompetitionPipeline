@@ -10,6 +10,9 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.logging_config import get_logger
+
+logger = get_logger("llm")
 
 
 # ============================================================
@@ -99,33 +102,49 @@ def classify_competition(
     tags: str,
 ) -> CompetitionClassification:
     """Classify competition type using LLM."""
-    llm: ChatOpenAI = get_llm()
+    logger.info(f"Classifying competition: {title}")
+    logger.debug(f"Using model: {settings.openai_model}, base_url: {settings.openai_api_base}")
 
-    # Use with_structured_output for guaranteed schema
-    chain = CLASSIFICATION_PROMPT | llm.with_structured_output(
-        CompetitionClassification
-    )
+    try:
+        llm: ChatOpenAI = get_llm()
 
-    result = chain.invoke(
-        {
-            "title": title,
-            "link": link,
-            "date_start": date_start,
-            "deadline": deadline,
-            "description": description,
-            "tags": tags,
-        }
-    )
+        # Use with_structured_output for guaranteed schema
+        chain = CLASSIFICATION_PROMPT | llm.with_structured_output(
+            CompetitionClassification
+        )
 
-    return result
+        result = chain.invoke(
+            {
+                "title": title,
+                "link": link,
+                "date_start": date_start,
+                "deadline": deadline,
+                "description": description,
+                "tags": tags,
+            }
+        )
+
+        logger.info(f"Classification result: {title} -> type={result.type}")
+        return result
+    except Exception as e:
+        logger.error(f"LLM classification failed for {title}: {type(e).__name__}: {e}")
+        raise
 
 
 def translate_description(description: str) -> str:
     """Translate description to Russian using LLM."""
-    llm = get_llm()
+    logger.info(f"Translating description (length={len(description)})")
+    logger.debug(f"Description preview: {description[:100]}...")
 
-    chain = TRANSLATION_PROMPT | llm.with_structured_output(TranslatedDescription)
+    try:
+        llm = get_llm()
 
-    result = chain.invoke({"description": description})
+        chain = TRANSLATION_PROMPT | llm.with_structured_output(TranslatedDescription)
 
-    return result.description_ru
+        result = chain.invoke({"description": description})
+
+        logger.info("Translation completed successfully")
+        return result.description_ru
+    except Exception as e:
+        logger.error(f"LLM translation failed: {type(e).__name__}: {e}")
+        raise

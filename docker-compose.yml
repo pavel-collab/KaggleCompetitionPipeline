@@ -51,8 +51,10 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - RABBITMQ_HOST=rabbitmq
+      - LOG_DIR=/app/logs
     volumes:
       - ~/.kaggle:/root/.kaggle:ro
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +72,9 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - RABBITMQ_HOST=rabbitmq
+      - LOG_DIR=/app/logs
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,6 +92,9 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - RABBITMQ_HOST=rabbitmq
+      - LOG_DIR=/app/logs
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy

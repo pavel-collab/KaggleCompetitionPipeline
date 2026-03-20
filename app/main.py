@@ -17,6 +17,7 @@ from app.database import (
     get_pending_competitions,
     init_db,
 )
+from app.logging_config import get_logger
 from app.telegram import send_error_notification
 from app.worker import (
     publish_classify_task,
@@ -25,6 +26,8 @@ from app.worker import (
     run_notify_worker,
     wait_for_rabbitmq,
 )
+
+logger = get_logger("main")
 
 
 # Threshold: if we have >= this many pending competitions, skip fetching new ones
@@ -112,7 +115,7 @@ def fetch_competitions() -> list[dict]:
         return result
 
     except Exception as e:
-        print(f"Failed to fetch competitions from Kaggle API: {e}")
+        logger.error(f"Failed to fetch competitions from Kaggle API: {e}")
         return []
 
 
@@ -125,23 +128,24 @@ def run_scheduler() -> None:
     2. If >= 5 pending: just send notifications from existing
     3. If < 5 pending: fetch new from Kaggle API
     """
-    print("Starting scheduler...")
+    logger.info("Starting scheduler...")
     init_db()
     wait_for_rabbitmq()
 
     while True:
-        print(f"\n[{datetime.now()}] Running scheduler iteration...")
+        logger.info(f"Running scheduler iteration at {datetime.now()}")
 
         try:
             pending_count = count_pending_competitions()
-            print(f"Pending competitions in DB: {pending_count}")
+            logger.info(f"Pending competitions in DB: {pending_count}")
 
             if pending_count >= PENDING_THRESHOLD:
                 # We have enough pending - just send notifications
-                print("Enough pending competitions, sending notifications...")
+                logger.info("Enough pending competitions, sending notifications...")
                 competitions = get_pending_competitions(limit=NOTIFY_BATCH_SIZE)
 
                 for comp in competitions:
+                    logger.info(f"Publishing notify task for: {comp.title}")
                     publish_notify_task({
                         "title": comp.title,
                         "link": comp.link,
@@ -152,23 +156,23 @@ def run_scheduler() -> None:
 
             else:
                 # Need to fetch new competitions
-                print("Fetching new competitions from Kaggle API...")
+                logger.info("Fetching new competitions from Kaggle API...")
 
                 competitions = fetch_competitions()
-                print(f"Fetched {len(competitions)} competitions")
+                logger.info(f"Fetched {len(competitions)} competitions")
 
                 if not competitions:
-                    print("No competitions fetched, skipping...")
+                    logger.info("No competitions fetched, skipping...")
                 else:
                     # Limit to 50 competitions
                     for comp in competitions[:50]:
                         publish_classify_task(comp)
 
         except Exception as e:
-            print(f"Scheduler error: {e}")
+            logger.error(f"Scheduler error: {type(e).__name__}: {e}")
             send_error_notification(f"Scheduler error: {e}")
 
-        print(f"Sleeping for {SCHEDULER_INTERVAL} seconds...")
+        logger.info(f"Sleeping for {SCHEDULER_INTERVAL} seconds...")
         time.sleep(SCHEDULER_INTERVAL)
 
 
@@ -179,6 +183,7 @@ def main() -> None:
         sys.exit(1)
 
     command = sys.argv[1]
+    logger.info(f"Starting Kaggle Pipeline with command: {command}")
 
     if command == "scheduler":
         run_scheduler()
@@ -190,9 +195,9 @@ def main() -> None:
         run_notify_worker()
     elif command == "init-db":
         init_db()
-        print("Database initialized!")
+        logger.info("Database initialized!")
     else:
-        print(f"Unknown command: {command}")
+        logger.error(f"Unknown command: {command}")
         print(__doc__)
         sys.exit(1)
 

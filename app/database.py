@@ -9,7 +9,10 @@ from sqlalchemy import create_engine, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+from app.logging_config import get_logger
 from app.models import Base, CompetitionStatus, KaggleCompetition
+
+logger = get_logger("database")
 
 # Create engine and session factory
 engine = create_engine(settings.database_url, echo=False)
@@ -18,7 +21,9 @@ SessionLocal = sessionmaker(bind=engine)
 
 def init_db() -> None:
     """Create all tables in database."""
+    logger.info("Initializing database tables")
     Base.metadata.create_all(engine)
+    logger.info("Database tables initialized")
 
 
 def get_session() -> Session:
@@ -37,7 +42,9 @@ def count_pending_competitions() -> int:
                 )
             )
         )
-        return len(result.scalars().all())
+        count = len(result.scalars().all())
+        logger.debug(f"Pending competitions count: {count}")
+        return count
 
 
 def upsert_competition(
@@ -49,12 +56,14 @@ def upsert_competition(
     competition_type: Optional[str],
 ) -> KaggleCompetition:
     """Insert or update competition by title."""
+    logger.debug(f"Upserting competition: {title}")
     with get_session() as session:
         # Try to find existing
         competition = session.get(KaggleCompetition, title)
 
         if competition:
             # Update existing (don't change status)
+            logger.debug(f"Updating existing competition: {title}")
             competition.link = link
             competition.date_start = date_start
             competition.deadline = deadline
@@ -62,6 +71,7 @@ def upsert_competition(
             competition.type = competition_type
         else:
             # Create new
+            logger.info(f"Creating new competition: {title} (type={competition_type})")
             competition = KaggleCompetition(
                 title=title,
                 link=link,
@@ -80,6 +90,7 @@ def upsert_competition(
 
 def get_pending_competitions(limit: int = 3) -> list[KaggleCompetition]:
     """Get competitions with status 'new' or 'queued'."""
+    logger.debug(f"Getting pending competitions (limit={limit})")
     with get_session() as session:
         result = session.execute(
             select(KaggleCompetition)
@@ -91,13 +102,19 @@ def get_pending_competitions(limit: int = 3) -> list[KaggleCompetition]:
             )
             .limit(limit)
         )
-        return list(result.scalars().all())
+        competitions = list(result.scalars().all())
+        logger.debug(f"Found {len(competitions)} pending competitions")
+        return competitions
 
 
 def mark_as_shown(title: str) -> None:
     """Mark competition as shown."""
+    logger.debug(f"Marking competition as shown: {title}")
     with get_session() as session:
         competition = session.get(KaggleCompetition, title)
         if competition:
             competition.status = CompetitionStatus.SHOWN
             session.commit()
+            logger.info(f"Competition marked as shown: {title}")
+        else:
+            logger.warning(f"Competition not found for marking as shown: {title}")
