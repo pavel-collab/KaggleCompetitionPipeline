@@ -1,0 +1,26 @@
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Configuration
+pydantic
+pydantic-settings
+python-dotenv
+
+# LangChain + OpenAI
+langchain
+langchain-openai
+openai
+
+# Telegram
+python-telegram-bot
+
+# RabbitMQ
+pika
+
+# HTTP client
+httpx
+
+# Utilities
+structlog
