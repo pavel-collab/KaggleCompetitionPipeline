@@ -41,6 +41,7 @@ services:
 
   # ============================================================
   # Scheduler - запускается по расписанию, создаёт задачи
+  # Requires ~/.kaggle/kaggle.json on host machine
   # ============================================================
   scheduler:
     build: .
@@ -50,14 +51,13 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - ~/.kaggle:/root/.kaggle:ro
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    # Для доступа к host.docker.internal (Kaggle API)
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   # ============================================================
   # Classify Worker - классифицирует соревнования через LLM

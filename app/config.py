@@ -37,9 +37,6 @@ class Settings(BaseSettings):
     rabbitmq_user: str = "guest"
     rabbitmq_password: str = "guest"
 
-    # Kaggle API (external service)
-    kaggle_api_url: str = "http://host.docker.internal:8000"
-
     @property
     def database_url(self) -> str:
         """Build PostgreSQL connection URL."""

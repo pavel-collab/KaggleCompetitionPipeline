@@ -19,8 +19,8 @@ python-telegram-bot
 # RabbitMQ
 pika
 
-# HTTP client
-httpx
+# Kaggle API
+kaggle
 
 # Utilities
 structlog

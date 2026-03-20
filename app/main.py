@@ -10,11 +10,8 @@ Usage:
 
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
-import httpx
-
-from app.config import settings
 from app.database import (
     count_pending_competitions,
     get_pending_competitions,
@@ -40,25 +37,82 @@ NOTIFY_BATCH_SIZE = 3
 SCHEDULER_INTERVAL = 24 * 60 * 60
 
 
-def check_kaggle_api_health() -> bool:
-    """Check if Kaggle API service is available."""
-    try:
-        response = httpx.get(f"{settings.kaggle_api_url}/health", timeout=10)
-        return response.json().get("status") == "ok"
-    except Exception as e:
-        print(f"Kaggle API health check failed: {e}")
-        return False
+# Kaggle API pagination settings
+MAX_PAGE_NUMBER = 10
+PAGE_SIZE = 100
 
-#TODO: need to use kaggle api instead of httpx requests
+
 def fetch_competitions() -> list[dict]:
-    """Fetch competitions from Kaggle API."""
+    """
+    Fetch active competitions from Kaggle API.
+
+    Returns competitions that:
+    - Have deadline in the future
+    - Have at least 7 days until deadline
+    """
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
     try:
-        response = httpx.get(f"{settings.kaggle_api_url}/competitions", timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("items", [])
+        api = KaggleApi()
+        api.authenticate()
+
+        competitions = []
+        page = 1
+        today_date = datetime.now()
+
+        while True:
+            comps = api.competitions_list(
+                page=page,
+                page_size=PAGE_SIZE,
+                search="",
+                category="all",
+                sort_by="latestDeadline",
+            )
+
+            if not comps or not comps.competitions:
+                break
+
+            for c in comps.competitions:
+                deadline_date = c.deadline
+
+                # Only active competitions
+                if deadline_date < today_date:
+                    continue
+
+                # At least 7 days until deadline
+                if deadline_date - today_date < timedelta(days=7):
+                    continue
+
+                competitions.append(c)
+
+            page += 1
+            if page >= MAX_PAGE_NUMBER:
+                break
+
+        result = []
+        for c in competitions:
+            description = c.description or ""
+            description += "\n\n".join(
+                tag.description for tag in c.tags if tag.description
+            )
+
+            tags = ", ".join(tag.ref for tag in c.tags if tag.ref)
+
+            result.append(
+                {
+                    "competition_title": c.title,
+                    "link": c.ref,
+                    "date_start": c.enabled_date.strftime("%Y-%m-%d"),
+                    "deadline": c.deadline.strftime("%Y-%m-%d"),
+                    "description": description,
+                    "tags": tags,
+                }
+            )
+
+        return result
+
     except Exception as e:
-        print(f"Failed to fetch competitions: {e}")
+        print(f"Failed to fetch competitions from Kaggle API: {e}")
         return []
 
 
@@ -98,15 +152,14 @@ def run_scheduler() -> None:
 
             else:
                 # Need to fetch new competitions
-                print("Fetching new competitions from API...")
+                print("Fetching new competitions from Kaggle API...")
 
-                if not check_kaggle_api_health():
-                    send_error_notification("Kaggle API is not available")
-                    print("Kaggle API not available, skipping...")
+                competitions = fetch_competitions()
+                print(f"Fetched {len(competitions)} competitions")
+
+                if not competitions:
+                    print("No competitions fetched, skipping...")
                 else:
-                    competitions = fetch_competitions()
-                    print(f"Fetched {len(competitions)} competitions")
-
                     # Limit to 50 competitions
                     for comp in competitions[:50]:
                         publish_classify_task(comp)
