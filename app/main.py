@@ -26,23 +26,10 @@ from app.worker import (
     run_notify_worker,
     wait_for_rabbitmq,
 )
+from app.constants import *
+from app.config import settings
 
 logger = get_logger("main")
-
-
-# Threshold: if we have >= this many pending competitions, skip fetching new ones
-PENDING_THRESHOLD = 5
-
-# How many competitions to notify at a time
-NOTIFY_BATCH_SIZE = 3
-
-# Scheduler interval (seconds) - every 24 hours
-SCHEDULER_INTERVAL = 24 * 60 * 60
-
-
-# Kaggle API pagination settings
-MAX_PAGE_NUMBER = 10
-PAGE_SIZE = 100
 
 
 def fetch_competitions() -> list[dict]:
@@ -172,8 +159,8 @@ def run_scheduler() -> None:
             logger.error(f"Scheduler error: {type(e).__name__}: {e}")
             send_error_notification(f"Scheduler error: {e}")
 
-        logger.info(f"Sleeping for {SCHEDULER_INTERVAL} seconds...")
-        time.sleep(SCHEDULER_INTERVAL)
+        logger.info(f"Sleeping for {settings.scheduler_interval} seconds...")
+        time.sleep(settings.scheduler_interval)
 
 
 def main() -> None:
@@ -185,6 +172,7 @@ def main() -> None:
     command = sys.argv[1]
     logger.info(f"Starting Kaggle Pipeline with command: {command}")
 
+    #TODO: we should to separate different services to the different projects in source code
     if command == "scheduler":
         run_scheduler()
     elif command == "classify":

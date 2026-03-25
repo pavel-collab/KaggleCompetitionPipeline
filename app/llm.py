@@ -5,12 +5,12 @@ Uses ChatOpenAI with structured output for classification and translation.
 
 from typing import Literal
 
-from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.logging_config import get_logger
+from prompts import CLASSIFICATION_PROMPT, TRANSLATION_PROMPT
 
 logger = get_logger("llm")
 
@@ -20,6 +20,7 @@ logger = get_logger("llm")
 # ============================================================
 
 
+#TODO: monore: move chemas to the separate folder
 class CompetitionClassification(BaseModel):
     """Structured output for competition classification."""
 
@@ -43,7 +44,9 @@ class TranslatedDescription(BaseModel):
 # LLM setup
 # ============================================================
 
-#TODO: this function can be used inplace
+"""
+Using the separate function to call llm to be able change the llm configuration in one place
+"""
 def get_llm() -> ChatOpenAI:
     """Create ChatOpenAI instance with OpenRouter settings."""
     return ChatOpenAI(
@@ -52,40 +55,6 @@ def get_llm() -> ChatOpenAI:
         base_url=settings.openai_api_base,
         temperature=0,
     )
-
-
-# ============================================================
-# Prompts
-# ============================================================
-
-#TODO: prompts can be extracted to the separate folder
-CLASSIFICATION_PROMPT = PromptTemplate.from_template(
-    """You are an expert Kaggle competition evaluator.
-
-Given a competition, determine its machine learning category based on description and tags.
-
-Competition:
-- Title: {title}
-- Link: {link}
-- Date start: {date_start}
-- Deadline: {deadline}
-- Description: {description}
-- Tags: {tags}
-
-Classify as one of: CLASSIC ML, LLM/NLP, CV, or Other.
-
-Return the competition data with the determined type."""
-)
-
-
-TRANSLATION_PROMPT = PromptTemplate.from_template(
-    """Translate the following Kaggle competition description to Russian.
-Keep it concise and clear.
-
-Description: {description}
-
-Return the translated description."""
-)
 
 
 # ============================================================

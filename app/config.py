@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     rabbitmq_user: str = "guest"
     rabbitmq_password: str = "guest"
 
+    # scheduler internal in seconds, default 24 h
+    scheduler_interval: int = 24 * 60 * 60
+
     @property
     def database_url(self) -> str:
         """Build PostgreSQL connection URL."""
