@@ -1,0 +1,19 @@
+# Data collection
+kaggle
+
+# LLM for labeling
+langchain
+langchain-openai
+openai
+pydantic
+
+# Training - BERT
+torch
+transformers
+datasets
+scikit-learn
+numpy
+
+# Training - LoRA (optional, requires GPU)
+# unsloth
+# trl
