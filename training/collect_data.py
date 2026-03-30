@@ -20,7 +20,7 @@ def collect_competitions() -> list[dict]:
     all_competitions = []
 
     # Collect from different categories to get diverse data
-    categories = ["all", "featured", "research", "playground", "getting-started"]
+    categories = ["all", "featured", "research", "playground", "gettingStarted"]
 
     for category in categories:
         print(f"\nFetching category: {category}")

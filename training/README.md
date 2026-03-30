@@ -20,6 +20,7 @@ training/
 ├── prepare_dataset.py  # Подготовка train/val/test
 ├── train_bert.py       # Fine-tuning BERT (CPU/GPU)
 ├── train_lora.py       # Fine-tuning LoRA (GPU only)
+├── evaluate.py         # Оценка моделей и сравнение с baseline
 ├── inference.py        # Inference обученных моделей
 ├── requirements.txt    # Зависимости
 └── data/
@@ -256,6 +257,71 @@ python inference.py --model bert "Classify images of cats and dogs"
 python inference.py --model bert "Summarize customer reviews"
 # Output: LLM/NLP
 ```
+
+### Шаг 6: Оценка моделей
+
+```bash
+# Оценить все доступные модели
+python evaluate.py
+
+# Только BERT
+python evaluate.py --bert-only
+
+# Только LoRA
+python evaluate.py --lora-only
+
+# Только OpenRouter LLM (baseline)
+python evaluate.py --llm-only
+```
+
+**Что делает:**
+- Загружает тестовый набор данных
+- Оценивает BERT классификатор (если обучен)
+- Оценивает LoRA классификатор (если обучен и есть GPU)
+- Оценивает OpenRouter LLM как baseline
+- Выводит сравнительную таблицу метрик
+- Сохраняет результаты в `evaluation_results.json`
+
+**Ожидаемый результат:**
+```
+Model Evaluation
+======================================================================
+
+Loading test data...
+Loaded 50 test samples
+
+Evaluating BERT classifier...
+  Loading BERT model...
+  Running inference...
+
+Evaluating OpenRouter LLM (baseline)...
+  Using model: openai/gpt-4o-mini
+  Running inference...
+
+======================================================================
+EVALUATION RESULTS
+======================================================================
+
+Model                Accuracy   F1 (macro)  F1 (weighted)    Samples
+----------------------------------------------------------------------
+BERT                   0.9000       0.8850         0.8920      50/50
+OpenRouter LLM         0.9400       0.9320         0.9380      50/50
+
+======================================================================
+COMPARISON WITH BASELINE (OpenRouter LLM)
+======================================================================
+
+BERT vs OpenRouter LLM:
+  Accuracy:  -0.0400 (-4.00%)
+  F1 macro:  -0.0470 (-4.70%)
+```
+
+**Метрики:**
+- **Accuracy:** Доля правильных ответов
+- **F1 macro:** Среднее F1 по всем классам (не учитывает дисбаланс)
+- **F1 weighted:** Взвешенное F1 (учитывает дисбаланс классов)
+
+Сравнение с baseline показывает, насколько локальная модель уступает (или превосходит) облачному LLM.
 
 ## Интеграция в основной проект
 
