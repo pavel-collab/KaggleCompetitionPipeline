@@ -28,6 +28,7 @@ from config import (
     LORA_MAX_LENGTH,
     LABELS,
 )
+from training_plots import plot_all_metrics
 
 
 # Prompt template for classification
@@ -162,6 +163,9 @@ def main():
     print("Starting training...")
     print("=" * 60)
     trainer.train()
+
+    # Generate training plots
+    plot_all_metrics(trainer, LORA_OUTPUT_DIR)
 
     # Save model
     print("\n" + "=" * 60)

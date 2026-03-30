@@ -31,6 +31,7 @@ from config import (
     ID2LABEL,
     LABEL2ID,
 )
+from training_plots import plot_all_metrics
 
 
 class CompetitionDataset(Dataset):
@@ -146,6 +147,9 @@ def main():
     print("Starting training...")
     print("=" * 60)
     trainer.train()
+
+    # Generate training plots
+    plot_all_metrics(trainer, BERT_OUTPUT_DIR)
 
     # Evaluate on test set
     print("\n" + "=" * 60)
