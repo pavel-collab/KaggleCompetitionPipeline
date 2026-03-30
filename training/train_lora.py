@@ -143,7 +143,8 @@ def main():
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
-        fp16=True,
+        fp16=False,
+        bf16=True,
         report_to="none",
     )
 
@@ -186,11 +187,14 @@ def main():
         return_tensors="pt",
     ).to("cuda")
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=10,
-        temperature=0.1,
-    )
+    with torch.inference_mode():
+        outputs = model.generate(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            max_new_tokens=10,
+            do_sample=False,  # Greedy decoding
+            pad_token_id=tokenizer.eos_token_id,
+        )
 
     result = tokenizer.decode(outputs[0], skip_special_tokens=True)
     print(f"Input: {test_text}")
