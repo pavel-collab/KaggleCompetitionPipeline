@@ -176,27 +176,37 @@ def main():
     model.save_pretrained(str(LORA_OUTPUT_DIR))
     tokenizer.save_pretrained(str(LORA_OUTPUT_DIR))
 
-    # Test inference
+    # Test inference with freshly loaded model (mimics real usage)
     print("\nTesting inference...")
     test_text = "Predict house prices based on features like size, location, and age."
 
-    FastLanguageModel.for_inference(model)
+    # Free memory and load saved model fresh
+    del model
+    del tokenizer
+    torch.cuda.empty_cache()
 
-    inputs = tokenizer(
+    model_inf, tokenizer_inf = FastLanguageModel.from_pretrained(
+        model_name=str(LORA_OUTPUT_DIR),
+        max_seq_length=LORA_MAX_LENGTH,
+        dtype=None,
+        load_in_4bit=True,
+    )
+    FastLanguageModel.for_inference(model_inf)
+
+    inputs = tokenizer_inf(
         INFERENCE_TEMPLATE.format(labels=", ".join(LABELS), text=test_text),
         return_tensors="pt",
     ).to("cuda")
 
-    with torch.inference_mode():
-        outputs = model.generate(
-            input_ids=inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
-            max_new_tokens=10,
-            do_sample=False,  # Greedy decoding
-            pad_token_id=tokenizer.eos_token_id,
-        )
+    outputs = model_inf.generate(
+        input_ids=inputs["input_ids"],
+        attention_mask=inputs["attention_mask"],
+        max_new_tokens=10,
+        do_sample=False,
+        pad_token_id=tokenizer_inf.eos_token_id,
+    )
 
-    result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    result = tokenizer_inf.decode(outputs[0], skip_special_tokens=True)
     print(f"Input: {test_text}")
     print(f"Output: {result.split('### Classification:')[-1].strip()}")
 
