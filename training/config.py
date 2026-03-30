@@ -36,9 +36,11 @@ NUM_LABELS = len(LABELS)
 BERT_MODEL_NAME = "distilbert-base-uncased"
 BERT_OUTPUT_DIR = MODELS_DIR / "bert_classifier"
 BERT_BATCH_SIZE = 16
-BERT_EPOCHS = 3
-BERT_LEARNING_RATE = 2e-5
+BERT_EPOCHS = 10  # Increased for small dataset
+BERT_LEARNING_RATE = 1e-5  # Lower LR for more stable training
 BERT_MAX_LENGTH = 512
+BERT_WARMUP_RATIO = 0.1  # 10% warmup steps
+BERT_EARLY_STOPPING_PATIENCE = 3  # Stop if no improvement for 3 epochs
 
 # Training settings - LoRA
 LORA_MODEL_NAME = "unsloth/tinyllama-bnb-4bit"

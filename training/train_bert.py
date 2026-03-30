@@ -6,16 +6,21 @@ Usage:
 """
 
 import json
+from collections import Counter
+
+import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
     TrainingArguments,
     Trainer,
+    EarlyStoppingCallback,
 )
 from sklearn.metrics import accuracy_score, f1_score, classification_report
-import numpy as np
+from sklearn.utils.class_weight import compute_class_weight
 
 from config import (
     TRAIN_FILE,
@@ -27,6 +32,8 @@ from config import (
     BERT_EPOCHS,
     BERT_LEARNING_RATE,
     BERT_MAX_LENGTH,
+    BERT_WARMUP_RATIO,
+    BERT_EARLY_STOPPING_PATIENCE,
     NUM_LABELS,
     ID2LABEL,
     LABEL2ID,
@@ -81,6 +88,37 @@ def compute_metrics(eval_pred):
     }
 
 
+def compute_class_weights(train_data: list[dict], num_labels: int) -> torch.Tensor:
+    """Compute class weights for imbalanced dataset."""
+    labels = [item["label_id"] for item in train_data]
+    class_weights = compute_class_weight(
+        class_weight="balanced",
+        classes=np.arange(num_labels),
+        y=labels,
+    )
+    return torch.tensor(class_weights, dtype=torch.float32)
+
+
+class WeightedTrainer(Trainer):
+    """Trainer with weighted cross-entropy loss for imbalanced classes."""
+
+    def __init__(self, class_weights: torch.Tensor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_weights = class_weights
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        # Move class weights to same device as logits
+        weights = self.class_weights.to(logits.device)
+        loss_fn = nn.CrossEntropyLoss(weight=weights)
+        loss = loss_fn(logits, labels)
+
+        return (loss, outputs) if return_outputs else loss
+
+
 def main():
     print("=" * 60)
     print("BERT Fine-tuning for Competition Classification")
@@ -110,10 +148,22 @@ def main():
     print(f"  Val:   {len(val_data)} samples")
     print(f"  Test:  {len(test_data)} samples")
 
+    # Show class distribution
+    train_labels = [item["label"] for item in train_data]
+    label_counts = Counter(train_labels)
+    print("\n  Train class distribution:")
+    for label, count in sorted(label_counts.items(), key=lambda x: -x[1]):
+        print(f"    {label}: {count} ({count/len(train_data)*100:.1f}%)")
+
     # Create datasets
     train_dataset = CompetitionDataset(train_data, tokenizer, BERT_MAX_LENGTH)
     val_dataset = CompetitionDataset(val_data, tokenizer, BERT_MAX_LENGTH)
     test_dataset = CompetitionDataset(test_data, tokenizer, BERT_MAX_LENGTH)
+
+    # Compute class weights for imbalanced dataset
+    print("\nComputing class weights for imbalanced classes...")
+    class_weights = compute_class_weights(train_data, NUM_LABELS)
+    print(f"  Class weights: {dict(zip(ID2LABEL.values(), class_weights.tolist()))}")
 
     # Training arguments
     BERT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -125,21 +175,25 @@ def main():
         per_device_eval_batch_size=BERT_BATCH_SIZE,
         learning_rate=BERT_LEARNING_RATE,
         weight_decay=0.01,
+        warmup_ratio=BERT_WARMUP_RATIO,
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1_macro",
+        greater_is_better=True,
         logging_steps=10,
         report_to="none",  # Disable wandb/mlflow
     )
 
-    # Trainer
-    trainer = Trainer(
+    # Trainer with class weights
+    trainer = WeightedTrainer(
+        class_weights=class_weights,
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=BERT_EARLY_STOPPING_PATIENCE)],
     )
 
     # Train
