@@ -362,6 +362,7 @@ class DatasetBuilder:
         try:
             from langchain_core.prompts import PromptTemplate
 
+            #TODO: move prompt to the separate file
             prompt = PromptTemplate.from_template(
                 """You are an expert Kaggle competition evaluator.
 
@@ -476,6 +477,7 @@ Return only the type."""
         print(f"  Original: {original_count}, Augmented: {len(augmented)}")
         print(f"  Total: {len(self._labeled_competitions)}")
 
+    #TODO: Есть сомнения в эффективности стратегий аугментации без использования LLM. Пока что отключу этот параметр
     def _augment_single(self, comp: Competition, variant: int) -> Competition | None:
         """Create augmented version of a competition."""
         # Simple augmentation strategies (no LLM needed for speed)
@@ -644,7 +646,7 @@ def main():
     builder.build(
         collect=args.collect,
         label=args.label,  # Skip if already labeled
-        augment=True,
+        augment=False,
         prepare=True,
     )
 
