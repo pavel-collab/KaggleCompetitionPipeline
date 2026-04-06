@@ -1,53 +1,41 @@
-# BERT Training Pipeline for Kaggle Competition Classification
+# autoresearch
 
-Autonomous training pipeline for classifying Kaggle competitions into categories: **CLASSIC ML**, **LLM/NLP**, **CV**, **Other**.
+This is an experiment to have the LLM do its own research for BERT-based Kaggle competition classification.
 
 Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
-## Quick Start
+## Setup
 
-```bash
-# 1. Prepare data (one-time setup)
-python prepare.py
+To set up a new experiment, work with the user to:
 
-# 2. Train model
-python train.py
+1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr6`). The branch `autoresearch/<tag>` must not already exist — this is a fresh run.
+2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current master.
+3. **Read the in-scope files**: Read these files for full context:
+   - `train.py` — the file you modify. Model architecture, optimizer, hyperparameters, training loop.
+   - `prepare.py` — fixed constants, data loading, evaluation, tokenizer. Do not modify.
+4. **Verify data exists**: Check that `data/processed/` contains train/val/test splits. If not, tell the human to run `python prepare.py`.
+5. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first run.
+6. **Confirm and go**: Confirm setup looks good.
 
-# 3. (Optional) Refresh data from Kaggle
-python prepare.py --refresh
-```
+Once you get confirmation, kick off the experimentation.
 
-## Project Structure
+## Experimentation
 
-```
-training/
-├── train.py          # Training script (MODIFIABLE)
-├── prepare.py        # Data prep & utilities (READ-ONLY)
-├── dataset_builder.py# Data collection & labeling
-├── program.md        # This file
-├── data/
-│   ├── raw/          # Raw competitions from Kaggle
-│   └── processed/    # Train/val/test splits
-└── models/
-    └── bert_classifier/  # Saved model checkpoints
-```
+Each experiment runs on a single device (CPU, CUDA, or MPS). You launch it simply as: `python train.py`.
 
-## File Roles
+**What you CAN do:**
+- Modify `train.py` — this is the only file you edit. Everything is fair game: model architecture, optimizer, hyperparameters, training loop, batch size, classifier head, pooling strategy, etc.
 
-| File | Role | Modifiable |
-|------|------|------------|
-| `train.py` | Training script with hyperparameters | **YES** |
-| `prepare.py` | Data loading, evaluation, utilities | NO |
-| `dataset_builder.py` | Data collection from Kaggle + LLM labeling | NO |
+**What you CANNOT do:**
+- Modify `prepare.py`. It is read-only. It contains data loading, tokenizer, and evaluation logic.
+- Install new packages or add dependencies. You can only use what's already available.
+- Modify the evaluation harness. The evaluation metrics in `prepare.py` are the ground truth.
 
-## Objective
+**The goal is simple: get the highest val_f1_macro.** Since the classes may be imbalanced, F1 macro is the primary metric. Everything is fair game: change the classifier head, the optimizer, the hyperparameters, the batch size, the pooling strategy. The only constraint is that the code runs without crashing.
 
-**Maximize validation F1 macro score** on the competition classification task.
+**Simplicity criterion**: All else being equal, simpler is better. A small improvement that adds ugly complexity is not worth it. Conversely, removing something and getting equal or better results is a great outcome — that's a simplification win. When evaluating whether to keep a change, weigh the complexity cost against the improvement magnitude. A 0.001 val_f1_macro improvement that adds 20 lines of hacky code? Probably not worth it. A 0.001 val_f1_macro improvement from deleting code? Definitely keep. An improvement of ~0 but much simpler code? Keep.
 
-The model classifies Kaggle competitions based on:
-- Title
-- Description
-- Tags
+**The first run**: Your very first run should always be to establish the baseline, so you will run the training script as is.
 
 ## Hyperparameters (train.py)
 
@@ -85,70 +73,78 @@ FREEZE_EMBEDDINGS = False        # Freeze BERT embeddings
 FREEZE_ENCODER_LAYERS = 0        # Layers to freeze
 ```
 
-## Data Pipeline
+## Output format
 
-### 1. Collection (`dataset_builder.py`)
+Once the script finishes it prints a summary like this:
 
-Fetches competitions from Kaggle API:
-- Categories: all, featured, research, playground, gettingStarted
-- Deduplication by competition ID
-- Saved to `data/raw/competitions.json`
+```
+==================================================
+BERT Training Script
+==================================================
+Device: cuda
+...
+Epoch  1/10 | Train Loss: 1.2345 | Val Loss: 0.9876 | Val F1: 0.7234 | Time: 45.2s
+  -> New best model saved! F1: 0.7234
+...
 
-### 2. Labeling (`dataset_builder.py`)
-
-Uses LLM (OpenRouter) to classify each competition:
-- Structured output with Pydantic
-- Incremental saving every 10 records
-- Saved to `data/processed/labeled_competitions.json`
-
-### 3. Augmentation (`dataset_builder.py`)
-
-Increases dataset volume with text variations:
-- Tag shuffling/reversing
-- Description truncation
-- Title modifications
-- Default: 3x augmentation factor
-
-### 4. Splitting (`dataset_builder.py`)
-
-Stratified split maintaining class distribution:
-- Train: 80%
-- Validation: 10%
-- Test: 10%
-
-## Evaluation Metrics
-
-- **F1 Macro** (primary) - balanced across classes
-- **F1 Weighted** - weighted by class frequency
-- **Accuracy** - overall correctness
-- **Per-class F1** - individual class performance
-
-## Autonomous Experimentation Loop
-
-For autonomous hyperparameter tuning:
-
-```bash
-while true; do
-    # 1. Run training
-    python train.py > results.txt 2>&1
-
-    # 2. Extract metric
-    f1=$(grep "val_f1_macro" results.txt | tail -1)
-    echo "Result: $f1"
-
-    # 3. Modify train.py hyperparameters
-    # (manually or with LLM agent)
-
-    sleep 5
-done
+>>> val_f1_macro = 0.8456
 ```
 
-## Constraints
+You can extract the key metric from the log file:
 
-- **Time budget**: 5 minutes (300s) wall clock per run
-- **Device**: CPU, CUDA, or MPS (Apple Silicon)
-- **Base model**: DistilBERT (fixed in prepare.py)
-- **Labels**: 4 classes (fixed)
+```
+grep "val_f1_macro" run.log | tail -1
+```
+
+## Logging results
+
+When an experiment is done, log it to `results.tsv` (tab-separated, NOT comma-separated — commas break in descriptions).
+
+The TSV has a header row and 5 columns:
+
+```
+commit	val_f1_macro	epochs	status	description
+```
+
+1. git commit hash (short, 7 chars)
+2. val_f1_macro achieved (e.g. 0.8456) — use 0.0000 for crashes
+3. epochs completed (e.g. 5) — use 0 for crashes
+4. status: `keep`, `discard`, or `crash`
+5. short text description of what this experiment tried
+
+Example:
+
+```
+commit	val_f1_macro	epochs	status	description
+a1b2c3d	0.8234	10	keep	baseline
+b2c3d4e	0.8456	8	keep	increase LR to 3e-5
+c3d4e5f	0.8012	10	discard	switch to max pooling
+d4e5f6g	0.0000	0	crash	double hidden dim (OOM)
+```
+
+## The experiment loop
+
+The experiment runs on a dedicated branch (e.g. `autoresearch/apr6`).
+
+LOOP FOREVER:
+
+1. Look at the git state: the current branch/commit we're on
+2. Tune `train.py` with an experimental idea by directly hacking the code.
+3. git commit
+4. Run the experiment: `python train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
+5. Read out the results: `grep "val_f1_macro\|epochs" run.log | tail -2`
+6. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
+7. Record the results in the tsv (NOTE: do not commit the results.tsv file, leave it untracked by git)
+8. If val_f1_macro improved (higher), you "advance" the branch, keeping the git commit
+9. If val_f1_macro is equal or worse, you git reset back to where you started
+
+The idea is that you are a completely autonomous researcher trying things out. If they work, keep. If they don't, discard. And you're advancing the branch so that you can iterate. If you feel like you're getting stuck in some way, you can rewind but you should probably do this very very sparingly (if ever).
+
+**Timeout**: Each experiment should take ~10 minutes total (including startup and eval overhead). If a run exceeds 15 minutes, kill it and treat it as a failure (discard and revert).
+
+**Crashes**: If a run crashes (OOM, or a bug, or etc.), use your judgment: If it's something dumb and easy to fix (e.g. a typo, a missing import), fix it and re-run. If the idea itself is fundamentally broken, just skip it, log "crash" as the status in the tsv, and move on.
+
+**NEVER STOP**: Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep, or gone from a computer and expects you to continue working *indefinitely* until you are manually stopped. You are autonomous. If you run out of ideas, think harder — re-read the in-scope files for new angles, try combining previous near-misses, try more radical architectural changes. The loop runs until the human interrupts you, period.
 
 ## Tips for Optimization
 
@@ -162,62 +158,9 @@ done
 5. **Freezing layers** can help with limited data
 6. **Label smoothing** can improve generalization
 
-## Requirements
+## Constraints
 
-```
-torch
-transformers
-scikit-learn
-numpy
-```
-
-For data collection:
-```
-kaggle
-langchain
-langchain-openai
-pydantic
-```
-
-## Environment Variables
-
-For data labeling (optional, only if re-labeling):
-```bash
-export OPENAI_API_KEY="your-openrouter-key"
-export OPENAI_API_BASE="https://openrouter.ai/api/v1"
-export OPENAI_MODEL="google/gemini-flash-1.5"
-```
-
-## Example Output
-
-```
-==================================================
-BERT Training Script
-==================================================
-Device: cuda
-Time budget: 300s
-
-Loading data...
-Train batches: 125
-Val batches: 16
-Test batches: 16
-Class weights: [0.8, 1.2, 1.5, 1.1]
-
-Creating model...
-Total params: 66,956,548
-Trainable params: 66,956,548
-
-Starting training...
-------------------------------------------------------------
-Epoch  1/10 | Train Loss: 1.2345 | Val Loss: 0.9876 | Val F1: 0.7234 | Time: 45.2s
-  -> New best model saved! F1: 0.7234
-Epoch  2/10 | Train Loss: 0.8765 | Val Loss: 0.7654 | Val F1: 0.8012 | Time: 44.8s
-  -> New best model saved! F1: 0.8012
-...
-
->>> val_f1_macro = 0.8456
-```
-
-## License
-
-MIT
+- **Device**: CPU, CUDA, or MPS (Apple Silicon)
+- **Base model**: DistilBERT (fixed in prepare.py)
+- **Labels**: 4 classes — CLASSIC ML, LLM/NLP, CV, Other
+- **Primary metric**: val_f1_macro (higher is better)

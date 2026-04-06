@@ -289,8 +289,8 @@ def main():
         from dataset_builder import DatasetBuilder
 
         builder = DatasetBuilder(
-            max_pages=15,
-            augmentation_factor=3,
+            max_pages=5,
+            # augmentation_factor=3,
         )
 
         # If raw data exists, skip collection
@@ -302,7 +302,7 @@ def main():
         builder.build(
             collect=collect,
             label=label,
-            augment=True,
+            augment=False,
             prepare=True,
         )
     else:
