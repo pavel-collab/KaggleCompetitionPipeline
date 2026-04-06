@@ -11,10 +11,9 @@ Usage:
 import json
 import random
 import time
-from collections import Counter
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Literal
+import argparse
 
 from pydantic import BaseModel, Field as PydanticField
 
@@ -162,6 +161,7 @@ class DatasetBuilder:
             augment: Whether to augment data for increased volume
             prepare: Whether to prepare final train/val/test splits
         """
+        #TODO: exchange to logger with 2 loggers: to file and to terminal
         print("=" * 60)
         print("Dataset Builder")
         print("=" * 60)
@@ -628,6 +628,11 @@ Return only the type."""
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Dataset Builder for Kaggle Competitions")
+    parser.add_argument("--collect", action="store_true", help="Collect data from Kaggle API")
+    parser.add_argument("--label", action="store_true", help="Label data with LLM")
+    args = parser.parse_args()
+    
     """Main entry point."""
     builder = DatasetBuilder(
         max_pages=15,  # Increased for more data
@@ -637,8 +642,8 @@ def main():
     # Full pipeline: collect=False to skip re-downloading
     # Set collect=True to fetch fresh data from Kaggle
     builder.build(
-        collect=False,
-        label=False,  # Skip if already labeled
+        collect=args.collect,
+        label=args.label,  # Skip if already labeled
         augment=True,
         prepare=True,
     )
