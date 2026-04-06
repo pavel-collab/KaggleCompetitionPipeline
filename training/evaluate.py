@@ -15,8 +15,12 @@ Usage:
 import argparse
 import json
 import time
+from pathlib import Path
 from typing import Literal
 
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for saving plots
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from langchain_core.prompts import PromptTemplate
@@ -260,6 +264,202 @@ def compute_metrics(
     }
 
 
+def plot_confusion_matrix(results: dict, output_path: Path) -> None:
+    """Plot confusion matrix heatmap for a single model."""
+    if "true_labels" not in results:
+        return
+
+    cm = confusion_matrix(results["true_labels"], results["predictions"])
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    im = ax.imshow(cm, interpolation='nearest', cmap='Blues')
+    ax.figure.colorbar(im, ax=ax)
+
+    ax.set(
+        xticks=np.arange(len(LABELS)),
+        yticks=np.arange(len(LABELS)),
+        xticklabels=[l[:10] for l in LABELS],
+        yticklabels=[l[:10] for l in LABELS],
+        ylabel='True Label',
+        xlabel='Predicted Label',
+        title=f'Confusion Matrix: {results["model"]}'
+    )
+
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+    # Add text annotations
+    thresh = cm.max() / 2.
+    for i in range(len(LABELS)):
+        for j in range(len(LABELS)):
+            ax.text(j, i, format(cm[i, j], 'd'),
+                   ha="center", va="center",
+                   color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    model_name = results["model"].lower().replace(" ", "_").replace("/", "_")
+    plt.savefig(output_path / f"confusion_matrix_{model_name}.png", dpi=150)
+    plt.close()
+    print(f"  Saved: {output_path / f'confusion_matrix_{model_name}.png'}")
+
+
+def plot_per_class_metrics(results: dict, output_path: Path) -> None:
+    """Plot per-class precision, recall, and F1 for a single model."""
+    if "true_labels" not in results:
+        return
+
+    report = classification_report(
+        results["true_labels"],
+        results["predictions"],
+        target_names=list(ID2LABEL.values()),
+        output_dict=True,
+        zero_division=0,
+    )
+
+    # Extract per-class metrics
+    classes = list(ID2LABEL.values())
+    precision = [report[c]["precision"] for c in classes]
+    recall = [report[c]["recall"] for c in classes]
+    f1 = [report[c]["f1-score"] for c in classes]
+
+    x = np.arange(len(classes))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    bars1 = ax.bar(x - width, precision, width, label='Precision', color='#2ecc71')
+    bars2 = ax.bar(x, recall, width, label='Recall', color='#3498db')
+    bars3 = ax.bar(x + width, f1, width, label='F1-Score', color='#9b59b6')
+
+    ax.set_xlabel('Class', fontsize=12)
+    ax.set_ylabel('Score', fontsize=12)
+    ax.set_title(f'Per-Class Metrics: {results["model"]}', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels([c[:10] for c in classes], rotation=45, ha='right')
+    ax.legend()
+    ax.set_ylim(0, 1.1)
+    ax.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    model_name = results["model"].lower().replace(" ", "_").replace("/", "_")
+    plt.savefig(output_path / f"per_class_metrics_{model_name}.png", dpi=150)
+    plt.close()
+    print(f"  Saved: {output_path / f'per_class_metrics_{model_name}.png'}")
+
+
+def plot_model_comparison(results_list: list[dict], output_path: Path) -> None:
+    """Plot comparison bar chart for all models."""
+    if len(results_list) < 1:
+        return
+
+    models = [r["model"] for r in results_list]
+    accuracy = [r["accuracy"] for r in results_list]
+    f1_macro = [r["f1_macro"] for r in results_list]
+    f1_weighted = [r["f1_weighted"] for r in results_list]
+
+    x = np.arange(len(models))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    bars1 = ax.bar(x - width, accuracy, width, label='Accuracy', color='#e74c3c')
+    bars2 = ax.bar(x, f1_macro, width, label='F1 Macro', color='#3498db')
+    bars3 = ax.bar(x + width, f1_weighted, width, label='F1 Weighted', color='#2ecc71')
+
+    # Add value labels on bars
+    def add_labels(bars):
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.3f}',
+                       xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3),
+                       textcoords="offset points",
+                       ha='center', va='bottom', fontsize=9)
+
+    add_labels(bars1)
+    add_labels(bars2)
+    add_labels(bars3)
+
+    ax.set_xlabel('Model', fontsize=12)
+    ax.set_ylabel('Score', fontsize=12)
+    ax.set_title('Model Comparison', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=15, ha='right')
+    ax.legend(loc='lower right')
+    ax.set_ylim(0, 1.15)
+    ax.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    plt.savefig(output_path / "model_comparison.png", dpi=150)
+    plt.close()
+    print(f"  Saved: {output_path / 'model_comparison.png'}")
+
+
+def plot_evaluation_summary(results_list: list[dict], output_path: Path) -> None:
+    """Create a summary plot with confusion matrices for all models."""
+    valid_results = [r for r in results_list if "true_labels" in r]
+
+    if not valid_results:
+        return
+
+    n_models = len(valid_results)
+    fig, axes = plt.subplots(1, n_models, figsize=(6 * n_models, 5))
+
+    if n_models == 1:
+        axes = [axes]
+
+    for idx, results in enumerate(valid_results):
+        ax = axes[idx]
+        cm = confusion_matrix(results["true_labels"], results["predictions"])
+
+        im = ax.imshow(cm, interpolation='nearest', cmap='Blues')
+
+        ax.set_xticks(np.arange(len(LABELS)))
+        ax.set_yticks(np.arange(len(LABELS)))
+        ax.set_xticklabels([l[:8] for l in LABELS], rotation=45, ha='right', fontsize=9)
+        ax.set_yticklabels([l[:8] for l in LABELS], fontsize=9)
+
+        # Add text annotations
+        thresh = cm.max() / 2.
+        for i in range(len(LABELS)):
+            for j in range(len(LABELS)):
+                ax.text(j, i, format(cm[i, j], 'd'),
+                       ha="center", va="center", fontsize=10,
+                       color="white" if cm[i, j] > thresh else "black")
+
+        ax.set_title(f'{results["model"]}\nAcc: {results["accuracy"]:.3f} | F1: {results["f1_macro"]:.3f}',
+                    fontsize=11, fontweight='bold')
+
+    plt.suptitle('Evaluation Summary', fontsize=14, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    plt.savefig(output_path / "evaluation_summary.png", dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: {output_path / 'evaluation_summary.png'}")
+
+
+def plot_all_evaluation_metrics(results_list: list[dict], output_path: Path) -> None:
+    """Generate all evaluation plots."""
+    output_path = Path(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print("\n" + "=" * 60)
+    print("Generating evaluation plots...")
+    print("=" * 60)
+
+    # Individual model plots
+    for results in results_list:
+        plot_confusion_matrix(results, output_path)
+        plot_per_class_metrics(results, output_path)
+
+    # Comparison plots
+    plot_model_comparison(results_list, output_path)
+    plot_evaluation_summary(results_list, output_path)
+
+    print("=" * 60)
+    print(f"All plots saved to: {output_path}")
+    print("=" * 60)
+
+
 def print_results(results: list[dict]) -> None:
     """Print comparison table and detailed reports."""
     print("\n" + "=" * 70)
@@ -365,6 +565,7 @@ def main():
     parser.add_argument("--lora-only", action="store_true", help="Evaluate only LoRA")
     parser.add_argument("--llm-only", action="store_true", help="Evaluate only OpenRouter LLM")
     parser.add_argument("--no-save", action="store_true", help="Don't save results to file")
+    parser.add_argument("--no-plots", action="store_true", help="Don't generate plots")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -411,6 +612,12 @@ def main():
 
     # Print results
     print_results(results)
+
+    # Generate plots
+    if not args.no_plots:
+        from config import BASE_DIR
+        plots_dir = BASE_DIR / "evaluation_plots"
+        plot_all_evaluation_metrics(results, plots_dir)
 
     # Save results
     if not args.no_save:
