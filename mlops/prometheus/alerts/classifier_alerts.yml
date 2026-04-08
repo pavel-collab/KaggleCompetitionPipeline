@@ -1,0 +1,94 @@
+# Alert rules for ML classifier monitoring
+
+groups:
+  - name: classifier_alerts
+    rules:
+      # High error rate
+      - alert: ClassifierHighErrorRate
+        expr: |
+          sum(rate(classifier_requests_total{status="error"}[5m])) /
+          sum(rate(classifier_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate in classifier"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      # High latency
+      - alert: ClassifierHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(classifier_request_latency_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency in classifier"
+          description: "95th percentile latency is {{ $value | humanizeDuration }}"
+
+      # Model not loaded
+      - alert: ClassifierModelNotLoaded
+        expr: classifier_model_loaded == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Classifier model not loaded"
+          description: "The classifier model has not been loaded for more than 2 minutes"
+
+      # No predictions for too long (model might be stuck)
+      - alert: ClassifierNoRecentPredictions
+        expr: |
+          time() - classifier_last_prediction_timestamp > 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No recent predictions"
+          description: "No predictions have been made in the last hour"
+
+      # High rate of low confidence predictions (potential data drift)
+      - alert: ClassifierHighLowConfidenceRate
+        expr: |
+          sum(rate(classifier_low_confidence_total[1h])) /
+          sum(rate(classifier_predictions_total[1h])) > 0.3
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of low confidence predictions"
+          description: "{{ $value | humanizePercentage }} of predictions have low confidence. Possible data drift detected."
+
+      # Class distribution anomaly (one class dominates)
+      - alert: ClassifierClassImbalance
+        expr: |
+          max(rate(classifier_predictions_total[1h])) /
+          sum(rate(classifier_predictions_total[1h])) > 0.8
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Class distribution anomaly"
+          description: "One class represents more than 80% of predictions. Check for data drift."
+
+  - name: drift_detector_alerts
+    rules:
+      # Data drift detected
+      - alert: DataDriftDetected
+        expr: drift_data_drift_detected == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data drift detected"
+          description: "The drift detector has identified significant data drift"
+
+      # Concept drift detected (prediction distribution shift)
+      - alert: ConceptDriftDetected
+        expr: drift_concept_drift_detected == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Concept drift detected"
+          description: "Significant shift in prediction distribution detected"
