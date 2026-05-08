@@ -52,7 +52,7 @@ POOL_STRATEGY = "cls"               # Pooling: "cls", "mean", "max"
 
 # Optimization
 BATCH_SIZE = 16                     # Training batch size
-LEARNING_RATE = 2e-5                # Peak learning rate
+LEARNING_RATE = 1e-5                # Peak learning rate
 WEIGHT_DECAY = 0.01                 # L2 regularization
 ADAM_BETAS = (0.9, 0.999)           # Adam momentum parameters
 ADAM_EPS = 1e-8                     # Adam epsilon for numerical stability
