@@ -371,7 +371,7 @@ def load_model(path: Path, device: str) -> BERTClassifier:
 
 def main():
     """Main training loop."""
-    torch.manual_seed(11)
+    torch.manual_seed(42)
     print("=" * 60)
     print("BERT Training Script")
     print("=" * 60)
