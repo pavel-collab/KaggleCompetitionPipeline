@@ -73,7 +73,7 @@ USE_CLASS_WEIGHTS = True            # Balance classes with weights
 
 # Regularization
 LABEL_SMOOTHING = 0.0               # Label smoothing factor (0 = none)
-FREEZE_EMBEDDINGS = False           # Freeze BERT embeddings
+FREEZE_EMBEDDINGS = True            # Freeze BERT embeddings
 FREEZE_ENCODER_LAYERS = 0           # Number of encoder layers to freeze (0 = none)
 
 # Device
