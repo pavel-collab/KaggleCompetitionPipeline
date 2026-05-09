@@ -13,9 +13,12 @@ Inspired by: https://github.com/karpathy/autoresearch
 """
 
 import gc
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 import torch
 import torch.nn as nn
