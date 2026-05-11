@@ -1,0 +1,66 @@
+commit	val_f1_macro	epochs	status	description
+a6c5fce	0.7367	6	keep	baseline (cls pool, lr=2e-5, bs=16, hidden=256, class_weights, onecycle warmup=0.1)
+3f0d830	1.0000	10	keep	exp1: LR 2e-5 -> 1e-5 (slower convergence, val=29 small so 1.0 plausible; test_f1=0.8662)
+27939e2	0.7516	7	discard	exp2: drop hidden layer (-> bare linear head); val collapsed, hidden layer matters
+9733d55	0.7367	7	discard	exp3: WD 0.01 -> 0; val collapsed, weight_decay matters
+29f7299	0.8465	10	discard	exp4: pool cls -> mean; val 0.8465 (test 0.8842 better than exp1's 0.8662, but val rules)
+b471599	0.7367	10	discard	exp5: label_smoothing 0 -> 0.1; val 0.7367 (test 0.8989 — best test so far, val rules)
+9b8005a	0.7981	9	discard	exp6: dropout 0.1 -> 0.2; val 0.7981 (test 0.8989)
+40014be	0.7814	8	discard	exp7: freeze 2 lower encoder layers; val 0.7814 (-14.5M trainable)
+d047ab9	0.8530	6	discard	exp8: BS 16 -> 8; val 0.8530 (best epoch=3)
+3f96c8d	0.1628	3	crash	exp9: BS 16 -> 32; NaN losses on MPS (numerical instability with bigger batch)
+e8a23c7	0.7351	10	discard	exp10: LR 1e-5 -> 5e-6; underfit (final train loss 0.79 vs 0.27 in exp1)
+3e1be67	0.7410	7	discard	exp11: warmup_ratio 0.1 -> 0.2; val 0.7410
+781863e	0.8005	6	discard	exp12: hidden_dim 256 -> 512; val 0.8005 (TIME_BUDGET cut at 6 epochs)
+8e7281b	0.8080	10	discard	exp13: scheduler onecycle -> cosine; val 0.8080
+5591f9f	0.5556	3	crash	exp14: pool max; HF Hub network drop in test eval, only 3 epochs (TIME_BUDGET) val 0.5556
+cb2fb8e	0.3095	1	crash	exp15: adam betas (0.9, 0.98); system contention -> epoch 1 took 668s, TIME_BUDGET cut after 1 epoch
+638d618	0.7262	3	discard	exp16: GELU -> Tanh in classifier; system contention again, only 3 epochs, val 0.7262
+350343f	0.2127	2	crash	exp17: USE_CLASS_WEIGHTS=False; system contention (epoch ~170s), only 2 epochs
+03e1f50	0.6575	3	crash	exp18: gradient_clip 1.0 -> 0.5; system contention (epoch ~85-123s), only 3 epochs
+7a08764	0.5659	3	crash	exp19: patience 3 -> 5; system contention (epoch ~85-145s), only 3 epochs
+c0f14bc	0.7061	3	crash	exp20: adam_eps 1e-8 -> 1e-6; HF Hub network drop in test eval after 3 epochs (TIME_BUDGET)
+a1061c2	0.8638	8	discard	exp21: freeze embeddings (-23M trainable); val 0.8638, test 0.8989 (best test)
+91f71ab	0.7843	8	discard	exp22: LR 1e-5 -> 8e-6; val 0.7843 (between 5e-6's 0.74 and 1e-5's 1.0)
+b72a918	0.8465	9	discard	exp23: concat CLS+mean pooling (1536-d input); val 0.8465, test 0.7447
+8409beb	0.7724	6	discard	exp24: concat CLS from last 2 layers (1536-d); val 0.7724, test 0.7775
+aa8643e	0.4542	1	crash	exp25: multi-sample dropout K=5; system contention 660s + HF Hub drop, only 1 epoch
+e04dadc	0.2834	1	crash	exp26: learned attention pooling; severe system contention (epoch 1997s) + HF Hub drop
+c186740	0.8712	10	keep	exp27: HF_HUB_OFFLINE=1 infra fix (same hyperparams as exp1); val 0.8712 confirms exp1's 1.0 was val=29 lottery. New baseline for further experiments.
+8d043ad	0.7638	9	discard	exp28: learned attention pooling; val 0.7638 (test 0.8842 — best test, val rules)
+72584e1	0.7450	7	discard	exp29: layer-wise LR decay (decay=0.95); val 0.7450
+1433e12	0.8055	10	discard	exp30: LayerNorm before classifier; val 0.8055
+c409d32	0.8643	2	crash	exp31: torch.manual_seed(42); system contention (epoch 2 = 1062s), only 2 epochs
+da8b390	0.7638	6	discard	exp32: torch.manual_seed(0); val 0.7638 (different init lottery)
+cc25fa6	0.6517	8	discard	exp33: torch.manual_seed(7); val 0.6517 (worst seed so far)
+0c70994	0.9013	10	keep	exp34: torch.manual_seed(1); val 0.9013 — improvement over 0.8712 baseline! reproducible.
+8a79a1f	0.8074	5	crash	exp35: seed=1 + mean pool; system contention (epoch 5 = 1111s), only 5 epochs
+ff2e73a	0.9013	10	discard	exp36: seed=1 + label_smoothing 0.1; val 0.9013 == baseline (equal, no improvement)
+b3c86bf	0.9095	9	keep	exp37: seed=1 + LR 1e-5 -> 1.5e-5; val 0.9095 — improvement! best epoch 6
+b8b88d0	0.9013	7	discard	exp38: LR 1.5e-5 -> 2e-5; val 0.9013 (test 0.9056 — best test! val rules)
+a59fc6f	0.9013	8	discard	exp39: dropout 0.1 -> 0.2; val 0.9013
+de896bf	0.9095	9	keep	exp40: freeze embeddings; val 0.9095 == baseline but -23M trainable params (simplification win, test 0.8766)
+d69d885	0.9013	9	discard	exp41: also freeze 2 lower encoder layers; val 0.9013 (28.5M trainable)
+d15e75d	0.9095	9	discard	exp42: warmup 0.1 -> 0.05; val 0.9095 == baseline (equal)
+d477a84	0.9095	9	discard	exp43: WD 0.01 -> 0.05; val 0.9095 == baseline (identical trace as exp40 — WD irrelevant w/ frozen emb)
+c245492	0.8280	7	discard	exp44: hidden_dim 256 -> 128; val 0.8280 (less capacity hurts)
+89ce2e0	0.8465	9	discard	exp45: hidden_dim 256 -> 384; val 0.8465 (256 is sweet spot)
+7603235	0.9095	9	discard	exp46: adam betas (0.9, 0.98); val 0.9095 == baseline (equal)
+431be94	0.9095	9	discard	exp47: clip 1.0 -> 0.5; val 0.9095 == baseline (clip not triggered)
+77663d6	0.9013	8	discard	exp48: scheduler linear; val 0.9013 (worse than onecycle)
+964951d	0.8821	6	discard	exp49: USE_CLASS_WEIGHTS=False; val 0.8821 (class weights matter)
+db5b7fb	0.8768	6	discard	exp50: warmup 0.1 -> 0.15; val 0.8768 (system contention, only 6 epochs)
+d4e1d3c	0.9095	9	discard	exp51: LR 1.5e-5 -> 1.7e-5; val 0.9095 == baseline (equal)
+aef3d50	0.7367	7	discard	exp52: seed 1 -> 2; val 0.7367 (seeds 0/2/7 all worse than 1)
+153acc6	0.9402	10	keep	exp53: seed 1 -> 11; val 0.9402 — big jump! best epoch 8, test 0.8183
+400e547	0.8994	10	discard	exp54: LR 1.5e-5 -> 1.7e-5 (seed=11); val 0.8994
+eabc70c	0.9402	10	discard	exp55: dropout 0.2 (seed=11); val 0.9402 == baseline (equal)
+3c51120	0.7981	8	discard	exp56: seed 11 -> 13; val 0.7981
+e25fb8d	0.6732	6	discard	exp57: seed 11 -> 23; val 0.6732
+119ba87	0.6473	9	discard	exp58: seed 11 -> 100; val 0.6473
+6999b26	0.9580	10	keep	exp59: seed 11 -> 42; val 0.9580 — NEW PEAK! best epoch 7, test 0.8448
+b4d5998	0.9721	10	keep	exp60: seed=42 + LR 1.5e-5 -> 1.7e-5; val 0.9721 — climbing! best epoch 8, test 0.8662
+cf2250c	0.9721	8	discard	exp61: LR 1.7e-5 -> 2e-5; val 0.9721 == baseline (equal)
+d5351ae	0.9721	8	discard	exp62: LR 1.7e-5 -> 1.8e-5; val 0.9721 == baseline (equal)
+07e0da0	0.9580	8	discard	exp63: warmup 0.1 -> 0.05; val 0.9580
+f81dfb2	0.9580	9	discard	exp64: dropout 0.1 -> 0.2 on advance; val 0.9580

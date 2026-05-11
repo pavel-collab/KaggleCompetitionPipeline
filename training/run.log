@@ -1,0 +1,127 @@
+============================================================
+BERT Training Script
+============================================================
+Device: mps
+Time budget: 300s
+
+Loading data...
+Train batches: 16
+Val batches: 2
+Test batches: 3
+Class weights: [0.5423728823661804, 2.064516067504883, 1.0158730745315552, 1.454545497894287]
+
+Creating model...
+Loading weights:   0%|          | 0/100 [00:00<?, ?it/s]Loading weights: 100%|██████████| 100/100 [00:00<00:00, 22649.88it/s]
+[1mDistilBertModel LOAD REPORT[0m from: distilbert-base-uncased
+Key                     | Status     |  | 
+------------------------+------------+--+-
+vocab_layer_norm.bias   | UNEXPECTED |  | 
+vocab_projector.bias    | UNEXPECTED |  | 
+vocab_layer_norm.weight | UNEXPECTED |  | 
+vocab_transform.weight  | UNEXPECTED |  | 
+vocab_transform.bias    | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+Total params: 66,560,772
+Trainable params: 42,725,124
+
+Starting training...
+------------------------------------------------------------
+Epoch  1/10 | Train Loss: 1.4480 | Val Loss: 1.2993 | Val F1: 0.4319 | Time: 24.8s
+  -> New best model saved! F1: 0.4319
+Epoch  2/10 | Train Loss: 1.2485 | Val Loss: 1.0456 | Val F1: 0.8328 | Time: 24.7s
+  -> New best model saved! F1: 0.8328
+Epoch  3/10 | Train Loss: 0.9012 | Val Loss: 0.6561 | Val F1: 0.7486 | Time: 24.9s
+Epoch  4/10 | Train Loss: 0.6442 | Val Loss: 0.3728 | Val F1: 0.8991 | Time: 25.7s
+  -> New best model saved! F1: 0.8991
+Epoch  5/10 | Train Loss: 0.4163 | Val Loss: 0.2077 | Val F1: 0.9298 | Time: 27.1s
+  -> New best model saved! F1: 0.9298
+Epoch  6/10 | Train Loss: 0.2885 | Val Loss: 0.2071 | Val F1: 0.9580 | Time: 27.1s
+  -> New best model saved! F1: 0.9580
+Epoch  7/10 | Train Loss: 0.1947 | Val Loss: 0.1944 | Val F1: 0.9580 | Time: 27.8s
+Epoch  8/10 | Train Loss: 0.1239 | Val Loss: 0.2453 | Val F1: 0.8994 | Time: 28.1s
+Epoch  9/10 | Train Loss: 0.1086 | Val Loss: 0.2543 | Val F1: 0.8994 | Time: 30.0s
+
+Early stopping at epoch 9
+
+============================================================
+Final Evaluation
+============================================================
+Loading weights:   0%|          | 0/100 [00:00<?, ?it/s]Loading weights: 100%|██████████| 100/100 [00:00<00:00, 9499.26it/s]
+[1mDistilBertModel LOAD REPORT[0m from: distilbert-base-uncased
+Key                     | Status     |  | 
+------------------------+------------+--+-
+vocab_layer_norm.bias   | UNEXPECTED |  | 
+vocab_projector.bias    | UNEXPECTED |  | 
+vocab_layer_norm.weight | UNEXPECTED |  | 
+vocab_transform.weight  | UNEXPECTED |  | 
+vocab_transform.bias    | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+/Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+
+Test Set Results:
+
+==================================================
+Evaluation Results
+==================================================
+Accuracy:    0.8611
+F1 Macro:    0.8448
+F1 Weighted: 0.8649
+
+Per-class F1:
+  CLASSIC ML: 0.8750
+  LLM/NLP: 0.8889
+  CV: 1.0000
+  Other: 0.6154
+
+Classification Report:
+              precision    recall  f1-score   support
+
+  CLASSIC ML       0.88      0.88      0.88        16
+     LLM/NLP       1.00      0.80      0.89         5
+          CV       1.00      1.00      1.00         9
+       Other       0.57      0.67      0.62         6
+
+    accuracy                           0.86        36
+   macro avg       0.86      0.84      0.84        36
+weighted avg       0.87      0.86      0.86        36
+
+
+Confusion Matrix:
+[[14  0  0  2]
+ [ 0  4  0  1]
+ [ 0  0  9  0]
+ [ 2  0  0  4]]
+
+============================================================
+Training Summary
+============================================================
+Best epoch: 6
+Best val F1 macro: 0.9580
+Test F1 macro: 0.8448
+Total time: 246.4s
+Model saved to: /Users/pavelfilippenko/Projects/MyProjects/KaggleCompetitionPipeline/training/models/bert_classifier
+
+>>> val_f1_macro = 0.9580
